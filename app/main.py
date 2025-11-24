@@ -23,7 +23,16 @@ app = FastAPI(
 # Serve Static Files (Frontend)
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static") 
 
-
+#  Requires the user to be an Admin
+@app.get("/users/{user_id}", response_model=schemas.UserPublic, dependencies=[Depends(ADMIN_ONLY)])
+async def get_user_details_by_id(user_id: int, db: DB_DEPENDENCY):
+    """
+    Admin-only route to fetch details for any user by their ID.
+    """
+    db_user = crud.get_user_by_id(db, user_id)
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return schemas.UserPublic.model_validate(db_user)
 
 ## User Registration Route
 @app.post("/register", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
@@ -34,6 +43,7 @@ async def register_user(user_data: schemas.UserCreate, db: DB_DEPENDENCY):
     
     new_user = crud.create_user(db, user=user_data)
     return schemas.UserPublic.model_validate(new_user)
+
 
 ## Token Generation / Login Route
 @app.post("/token", response_model=schemas.Token)

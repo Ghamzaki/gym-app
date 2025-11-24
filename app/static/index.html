@@ -3,171 +3,334 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FastAPI RBAC Client</title>
+    <title>Gym RBAC Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-        h2 { border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 20px; }
-        input[type="email"], input[type="password"] { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
-        button:hover { background-color: #0056b3; }
-        .output { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; }
-        .role-check { margin-top: 15px; display: flex; gap: 10px; }
-        .role-check button { flex: 1; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f0f2f5; }
+        .app-header { background-color: #3f51b5; color: white; padding: 15px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .app-header h1 { margin: 0; font-size: 1.5em; }
+        .auth-status { font-size: 0.9em; }
+        .container { max-width: 900px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .content { min-height: 400px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 4px; margin-top: 20px; }
+        .nav button { background: none; border: none; color: #3f51b5; padding: 10px 15px; cursor: pointer; font-weight: 600; border-radius: 4px; margin-left: 10px; transition: background-color 0.2s; }
+        .nav button:hover, .nav button.active { background-color: #e8eaf6; }
+        form { display: flex; flex-direction: column; gap: 10px; padding: 15px 0; }
+        input[type="text"], input[type="email"], input[type="password"] { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; }
+        button.primary { background-color: #3f51b5; }
+        button.danger { background-color: #f44336; }
+        button:hover { opacity: 0.9; }
+        .message { padding: 10px; margin-top: 15px; border-radius: 4px; font-weight: bold; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .service-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+        .service-item { background: #f9f9f9; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
 
+    <div class="app-header">
+        <h1>🏋️ Gym Portal</h1>
+        <div id="auth-status" class="auth-status"></div>
+    </div>
+
     <div class="container">
-        <h1>Gym RBAC API Client</h1>
-        
-        <h2>🔑 Login / Get Token</h2>
-        <form id="loginForm">
-            <label for="email">Email:</label>
-            <input type="email" id="email" required value="admin@example.com">
-            <label for="password">Password:</label>
-            <input type="password" id="password" required value="securepassword">
-            <button type="submit">Login</button>
-        </form>
-        <button onclick="logout()">Logout</button>
+        <div class="nav" id="navigation">
+            </div>
 
-        <h2>👤 User Data & RBAC Checks</h2>
-        <button onclick="fetchProfile()">1. Fetch Profile (/users/me)</button>
-        
-        <div class="role-check">
-            <button onclick="checkTrainerAccess()">2. Trainer/Admin Access</button>
-            <button onclick="checkAdminAccess()">3. Admin-Only Access</button>
-        </div>
+        <div id="main-content" class="content">
+            </div>
 
-        <h2>Output</h2>
-        <div class="output" id="output">
-            Status and JSON responses will appear here.
-        </div>
+        <div id="message-area" class="message" style="display:none;"></div>
     </div>
 
     <script>
-        // CRITICAL: REPLACE THIS WITH YOUR LIVE RENDER API URL
-        const API_BASE_URL = '';
-
-        const outputDiv = document.getElementById('output');
+        // --- CONFIGURATION ---
+        const API_BASE_URL = ''; // Same domain, using relative path
+        let currentUser = null;
+        let userRole = null;
         let accessToken = localStorage.getItem('access_token');
         
-        // Display current token status on load
-        if (accessToken) {
-            outputDiv.innerHTML = `Token found! Logged in.`;
-        } else {
-            outputDiv.innerHTML = `Not logged in. Please use the form above.`;
+        // Mock Services data (Since services are not database-backed yet)
+        const AVAILABLE_SERVICES = [
+            { id: 1, name: "Cardio Area Access", description: "Full access to treadmills, ellipticals, and bikes." },
+            { id: 2, name: "Strength Training Zone", description: "Access to free weights, racks, and resistance machines." },
+            { id: 3, name: "Group Fitness Classes", description: "Unlimited access to yoga, spin, and HIIT classes." },
+            { id: 4, name: "Personal Training Sessions", description: "One-on-one sessions with a certified trainer." }
+        ];
+
+        // --- DOM Elements ---
+        const contentDiv = document.getElementById('main-content');
+        const navDiv = document.getElementById('navigation');
+        const statusDiv = document.getElementById('auth-status');
+        const messageDiv = document.getElementById('message-area');
+
+        // --- UTILITY FUNCTIONS ---
+        function showMessage(text, type = 'success') {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+            setTimeout(() => { messageDiv.style.display = 'none'; }, 5000);
         }
 
-        // --- Utility Functions ---
-
-        /** Fetches API with authorization header if a token exists. */
-        async function authenticatedFetch(path, method = 'GET') {
-            const url = `${API_BASE_URL}${path}`;
-            const headers = {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-            };
-
-            outputDiv.innerHTML = `Sending ${method} request to: ${url}`;
-            
+        async function isAuthenticated() {
+            if (!accessToken) {
+                return false;
+            }
             try {
-                const response = await fetch(url, { method, headers });
-                const data = await response.json();
-                
-                outputDiv.innerHTML = `
-Status: ${response.status} ${response.statusText}
---- Response Body ---
-${JSON.stringify(data, null, 2)}`;
-
+                const response = await fetch(`${API_BASE_URL}/users/me`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                });
+                if (response.ok) {
+                    currentUser = await response.json();
+                    userRole = currentUser.role;
+                    return true;
+                }
             } catch (error) {
-                outputDiv.innerHTML = `Error: ${error.message}`;
+                console.error("Auth check failed:", error);
             }
+            // Token is invalid or expired
+            logout(false); 
+            return false;
         }
 
-        function logout() {
-            localStorage.removeItem('access_token');
+        function logout(clearToken = true) {
+            if (clearToken) {
+                localStorage.removeItem('access_token');
+            }
             accessToken = null;
-            outputDiv.innerHTML = 'Logged out. Token cleared.';
+            currentUser = null;
+            userRole = null;
+            showMessage('Successfully logged out.', 'success');
+            renderApp();
         }
 
-        // --- Endpoint Callbacks ---
-
-        async function fetchProfile() {
-            if (!accessToken) {
-                outputDiv.innerHTML = 'Error: No token found. Please log in first.';
-                return;
-            }
-            await authenticatedFetch('/users/me');
-        }
-
-        async function checkTrainerAccess() {
-            if (!accessToken) {
-                outputDiv.innerHTML = 'Error: No token found. Please log in first.';
-                return;
-            }
-            // This maps to the @app.get("/training-schedule", dependencies=[Depends(TRAINER_OR_ADMIN)]) route
-            await authenticatedFetch('/training-schedule');
-        }
-
-        async function checkAdminAccess() {
-             if (!accessToken) {
-                outputDiv.innerHTML = 'Error: No token found. Please log in first.';
-                return;
-            }
-            // You don't have a simple GET /admin route, so we'll test an Admin-only PATCH attempt.
-            // This is a dummy call just to trigger the ADMIN_ONLY dependency check.
-            // Note: A PATCH without a proper body will likely fail the Pydantic validation, but 
-            // the 403 Forbidden check will happen first if the user isn't admin.
-            await authenticatedFetch('/admin/update-role/1', 'PATCH');
-        }
-        
-        // --- Login Form Submission ---
-
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
-            // FastAPI's OAuth2PasswordRequestForm requires application/x-www-form-urlencoded
-            const details = {
-                'username': email, // FastAPI expects 'username' for the email field in this context
-                'password': password
-            };
-
-            const formBody = Object.keys(details).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(details[key])).join('&');
-            
-            outputDiv.innerHTML = 'Attempting login...';
-
+        async function handleLogin(email, password) {
+            const formBody = new URLSearchParams({ username: email, password: password });
             try {
                 const response = await fetch(`${API_BASE_URL}/token`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: formBody
                 });
-
                 const data = await response.json();
-
+                
                 if (response.ok) {
                     accessToken = data.access_token;
                     localStorage.setItem('access_token', accessToken);
-                    outputDiv.innerHTML = `
-SUCCESS! Token received and stored.
---- Token Data ---
-${JSON.stringify(data, null, 2)}`;
+                    await isAuthenticated(); // Get user details immediately
+                    showMessage(`Login successful! Welcome, ${currentUser.name}. Your role is ${userRole}.`, 'success');
                 } else {
-                    outputDiv.innerHTML = `
-LOGIN FAILED: ${response.status} ${response.statusText}
---- Error ---
-${JSON.stringify(data, null, 2)}`;
+                    showMessage(`Login failed: ${data.detail || 'Invalid credentials'}`, 'error');
                 }
             } catch (error) {
-                outputDiv.innerHTML = `Network Error: ${error.message}`;
+                showMessage(`Network error during login.`, 'error');
             }
-        });
+            renderApp();
+        }
 
+        async function handleRegister(name, email, password) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage(`Registration successful for ${data.email}. You can now log in.`, 'success');
+                    renderLogin(); // Switch to login form
+                } else {
+                    showMessage(`Registration failed: ${data.detail || 'Server error'}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Network error during registration.`, 'error');
+            }
+        }
+        
+        // --- PAGE RENDERERS ---
+
+        function renderNav() {
+            navDiv.innerHTML = '';
+            if (currentUser) {
+                navDiv.innerHTML += `<button onclick="renderServices()">Services</button>`;
+                if (userRole === 'admin') {
+                    navDiv.innerHTML += `<button onclick="renderAdminDashboard()">Admin Dashboard</button>`;
+                }
+                navDiv.innerHTML += `<button onclick="logout()">Logout</button>`;
+            } else {
+                navDiv.innerHTML += `<button onclick="renderLogin()">Login</button>`;
+                navDiv.innerHTML += `<button onclick="renderRegister()">Register</button>`;
+            }
+        }
+        
+        function updateStatus() {
+            if (currentUser) {
+                statusDiv.innerHTML = `Logged in as **${currentUser.name}** (${userRole})`;
+            } else {
+                statusDiv.innerHTML = `Status: Logged Out`;
+            }
+        }
+
+        function renderLogin() {
+            contentDiv.innerHTML = `
+                <h2>Login</h2>
+                <form id="loginForm">
+                    <input type="email" id="login_email" placeholder="Email" required>
+                    <input type="password" id="login_password" placeholder="Password" required>
+                    <button class="primary" type="submit">Log In</button>
+                    <button type="button" onclick="renderRegister()">Need an account? Register here.</button>
+                </form>
+            `;
+            document.getElementById('loginForm').onsubmit = (e) => {
+                e.preventDefault();
+                handleLogin(
+                    document.getElementById('login_email').value,
+                    document.getElementById('login_password').value
+                );
+            };
+        }
+
+        function renderRegister() {
+             contentDiv.innerHTML = `
+                <h2>Register for Membership</h2>
+                <form id="registerForm">
+                    <input type="text" id="reg_name" placeholder="Full Name" required>
+                    <input type="email" id="reg_email" placeholder="Email" required>
+                    <input type="password" id="reg_password" placeholder="Password (Min 8 chars)" required>
+                    <button class="primary" type="submit">Register</button>
+                    <button type="button" onclick="renderLogin()">Already have an account? Log in.</button>
+                </form>
+            `;
+            document.getElementById('registerForm').onsubmit = (e) => {
+                e.preventDefault();
+                handleRegister(
+                    document.getElementById('reg_name').value,
+                    document.getElementById('reg_email').value,
+                    document.getElementById('reg_password').value
+                );
+            };
+        }
+
+        function renderDashboard() {
+            contentDiv.innerHTML = `
+                <h2>Welcome to the Gym Portal, ${currentUser ? currentUser.name : 'Guest'}!</h2>
+                <p>Your current role is **${userRole || 'Guest'}**.</p>
+                
+                ${currentUser ? `
+                    <p>Access the **Services** tab above to view your membership benefits.</p>
+                    ${userRole === 'admin' ? '<p style="color:#3f51b5;">You have **Admin** privileges. Access the Admin Dashboard for management tools.</p>' : ''}
+                ` : `
+                    <p>Please **Login** or **Register** to access the gym's services.</p>
+                `}
+            `;
+        }
+
+        function renderServices() {
+            if (!currentUser) return renderLogin();
+            
+            let servicesHtml = AVAILABLE_SERVICES.map(service => `
+                <div class="service-item">
+                    <h4>${service.name}</h4>
+                    <p>${service.description}</p>
+                </div>
+            `).join('');
+
+            contentDiv.innerHTML = `
+                <h2>Available Services (${userRole.toUpperCase()} Membership)</h2>
+                <p>Here are the services included with your membership:</p>
+                <div class="service-list">${servicesHtml}</div>
+            `;
+        }
+        
+        function renderAdminDashboard() {
+            if (userRole !== 'admin') {
+                contentDiv.innerHTML = '<h2>Access Denied</h2><p>You must be an administrator to view this page.</p>';
+                return;
+            }
+
+            contentDiv.innerHTML = `
+                <h2>👑 Admin Dashboard</h2>
+                <p>Manage users and mock services here. **Note:** User management endpoints require the user ID.</p>
+                
+                <h3>User Management (Admin Only)</h3>
+                <form id="adminForm" style="border: 1px solid #ccc; padding: 15px;">
+                    <input type="number" id="targetUserId" placeholder="Target User ID (e.g., 1)" required>
+                    <select id="actionType" required>
+                        <option value="">Select Action</option>
+                        <option value="get">Get User Details</option>
+                        <option value="promote_trainer">Promote to Trainer</option>
+                        <option value="promote_admin">Promote to Admin</option>
+                    </select>
+                    <button type="submit" class="danger">Execute Action</button>
+                </form>
+            `;
+            
+            document.getElementById('adminForm').onsubmit = (e) => {
+                e.preventDefault();
+                handleAdminAction(
+                    document.getElementById('targetUserId').value,
+                    document.getElementById('actionType').value
+                );
+            };
+        }
+        
+        async function handleAdminAction(userId, action) {
+            if (!accessToken) return showMessage("Log in as Admin first.", "error");
+
+            let method = 'GET';
+            let path = '';
+            let body = null;
+            
+            if (action === 'get') {
+                path = `/users/${userId}`; // Assuming you have a GET /users/{id} endpoint
+                method = 'GET';
+            } else if (action.startsWith('promote')) {
+                const role = action.split('_')[1];
+                path = `/admin/update-role/${userId}`;
+                method = 'PATCH';
+                body = { role: role };
+            } else {
+                return showMessage("Invalid action selected.", "error");
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}${path}`, {
+                    method: method,
+                    headers: { 
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': body ? 'application/json' : undefined
+                    },
+                    body: body ? JSON.stringify(body) : undefined
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage(`Action ${action.toUpperCase()} successful. Response: ${JSON.stringify(data.role || data, null, 2)}`, 'success');
+                } else {
+                    showMessage(`Action failed (${response.status}): ${data.detail || 'Check user ID or permissions.'}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`Network error during admin action.`, 'error');
+            }
+        }
+        
+        // --- APP INITIALIZER ---
+        async function renderApp() {
+            const loggedIn = await isAuthenticated();
+            updateStatus();
+            renderNav();
+            
+            if (loggedIn) {
+                renderDashboard();
+            } else {
+                renderLogin();
+            }
+        }
+
+        // Start the application
+        renderApp();
     </script>
 </body>
 </html>
