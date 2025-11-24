@@ -1,6 +1,7 @@
 # app/main.py
 from fastapi import FastAPI, Depends, HTTPException, status, Body
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from typing import Annotated
 
 # Absolute imports work because Uvicorn is run from the project root
@@ -15,11 +16,16 @@ from .dependencies import (
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="Gym RBAC API",
-    description="JWT Authentication and Role-Based Access Control using FastAPI and Supabase.",
+    title="A RBAC Gym API",
+    description="JWT Authentication and Role-Based Access Control using Python/FastAPI and Render.",
 )
 
-## 📝 User Registration Route
+# Serve Static Files (Frontend)
+app.mount("/", StaticFiles(directory="app/static", html=True), name="static") 
+
+
+
+## User Registration Route
 @app.post("/register", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
 async def register_user(user_data: schemas.UserCreate, db: DB_DEPENDENCY):
     db_user = crud.get_user_by_email(db, email=user_data.email)
@@ -29,7 +35,7 @@ async def register_user(user_data: schemas.UserCreate, db: DB_DEPENDENCY):
     new_user = crud.create_user(db, user=user_data)
     return schemas.UserPublic.model_validate(new_user)
 
-## 🔑 Token Generation / Login Route
+## Token Generation / Login Route
 @app.post("/token", response_model=schemas.Token)
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: DB_DEPENDENCY):
     user = crud.get_user_by_email(db, email=form_data.username)
@@ -48,19 +54,19 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-## 👤 Protected User Profile Route
+## Protected User Profile Route
 @app.get("/users/me", response_model=schemas.UserPublic)
 async def read_users_me(current_user: CURRENT_USER_DEPENDENCY):
     """Returns the profile of the current authenticated user."""
     return current_user
 
-## 🏋️ Role-Based Access Control (Trainer/Admin)
+## Role-Based Access Control (Trainer/Admin)
 @app.get("/training-schedule", dependencies=[Depends(TRAINER_OR_ADMIN)])
 async def get_training_schedule():
     """Access granted only to users with the 'trainer' or 'admin' role."""
     return {"message": "Access granted: This is the confidential training schedule."}
 
-## ⚙️ Role-Based Access Control (Admin Only)
+## Role-Based Access Control (Admin Only)
 @app.patch("/admin/update-role/{user_id}", response_model=schemas.UserPublic, dependencies=[Depends(ADMIN_ONLY)])
 async def update_user_role(
     user_id: int, 

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastAPI RBAC Client</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        h2 { border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 20px; }
+        input[type="email"], input[type="password"] { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        button:hover { background-color: #0056b3; }
+        .output { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word; }
+        .role-check { margin-top: 15px; display: flex; gap: 10px; }
+        .role-check button { flex: 1; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gym RBAC API Client</h1>
+        
+        <h2>🔑 Login / Get Token</h2>
+        <form id="loginForm">
+            <label for="email">Email:</label>
+            <input type="email" id="email" required value="admin@example.com">
+            <label for="password">Password:</label>
+            <input type="password" id="password" required value="securepassword">
+            <button type="submit">Login</button>
+        </form>
+        <button onclick="logout()">Logout</button>
+
+        <h2>👤 User Data & RBAC Checks</h2>
+        <button onclick="fetchProfile()">1. Fetch Profile (/users/me)</button>
+        
+        <div class="role-check">
+            <button onclick="checkTrainerAccess()">2. Trainer/Admin Access</button>
+            <button onclick="checkAdminAccess()">3. Admin-Only Access</button>
+        </div>
+
+        <h2>Output</h2>
+        <div class="output" id="output">
+            Status and JSON responses will appear here.
+        </div>
+    </div>
+
+    <script>
+        // CRITICAL: REPLACE THIS WITH YOUR LIVE RENDER API URL
+        const API_BASE_URL = '';
+
+        const outputDiv = document.getElementById('output');
+        let accessToken = localStorage.getItem('access_token');
+        
+        // Display current token status on load
+        if (accessToken) {
+            outputDiv.innerHTML = `Token found! Logged in.`;
+        } else {
+            outputDiv.innerHTML = `Not logged in. Please use the form above.`;
+        }
+
+        // --- Utility Functions ---
+
+        /** Fetches API with authorization header if a token exists. */
+        async function authenticatedFetch(path, method = 'GET') {
+            const url = `${API_BASE_URL}${path}`;
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+            };
+
+            outputDiv.innerHTML = `Sending ${method} request to: ${url}`;
+            
+            try {
+                const response = await fetch(url, { method, headers });
+                const data = await response.json();
+                
+                outputDiv.innerHTML = `
+Status: ${response.status} ${response.statusText}
+--- Response Body ---
+${JSON.stringify(data, null, 2)}`;
+
+            } catch (error) {
+                outputDiv.innerHTML = `Error: ${error.message}`;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            accessToken = null;
+            outputDiv.innerHTML = 'Logged out. Token cleared.';
+        }
+
+        // --- Endpoint Callbacks ---
+
+        async function fetchProfile() {
+            if (!accessToken) {
+                outputDiv.innerHTML = 'Error: No token found. Please log in first.';
+                return;
+            }
+            await authenticatedFetch('/users/me');
+        }
+
+        async function checkTrainerAccess() {
+            if (!accessToken) {
+                outputDiv.innerHTML = 'Error: No token found. Please log in first.';
+                return;
+            }
+            // This maps to the @app.get("/training-schedule", dependencies=[Depends(TRAINER_OR_ADMIN)]) route
+            await authenticatedFetch('/training-schedule');
+        }
+
+        async function checkAdminAccess() {
+             if (!accessToken) {
+                outputDiv.innerHTML = 'Error: No token found. Please log in first.';
+                return;
+            }
+            // You don't have a simple GET /admin route, so we'll test an Admin-only PATCH attempt.
+            // This is a dummy call just to trigger the ADMIN_ONLY dependency check.
+            // Note: A PATCH without a proper body will likely fail the Pydantic validation, but 
+            // the 403 Forbidden check will happen first if the user isn't admin.
+            await authenticatedFetch('/admin/update-role/1', 'PATCH');
+        }
+        
+        // --- Login Form Submission ---
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            // FastAPI's OAuth2PasswordRequestForm requires application/x-www-form-urlencoded
+            const details = {
+                'username': email, // FastAPI expects 'username' for the email field in this context
+                'password': password
+            };
+
+            const formBody = Object.keys(details).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(details[key])).join('&');
+            
+            outputDiv.innerHTML = 'Attempting login...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formBody
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    accessToken = data.access_token;
+                    localStorage.setItem('access_token', accessToken);
+                    outputDiv.innerHTML = `
+SUCCESS! Token received and stored.
+--- Token Data ---
+${JSON.stringify(data, null, 2)}`;
+                } else {
+                    outputDiv.innerHTML = `
+LOGIN FAILED: ${response.status} ${response.statusText}
+--- Error ---
+${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                outputDiv.innerHTML = `Network Error: ${error.message}`;
+            }
+        });
+
+    </script>
+</body>
+</html>
