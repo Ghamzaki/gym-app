@@ -1,0 +1,19 @@
+# render.yaml
+services:
+  - type: web
+    name: gym-rbac-api
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    # Runs the application using the package path (app.main)
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.x
+      
+      # IMPORTANT: These values will be set securely in the Render dashboard.
+      # They are included here only for structural definition.
+      - key: DATABASE_URL 
+        sync: false # Set securely in the dashboard
+      - key: JWT_SECRET_KEY 
+        sync: false # Set securely in the dashboard
