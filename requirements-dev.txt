@@ -1,0 +1,5 @@
+# requirements-dev.txt
+pytest
+pytest-asyncio
+httpx
+python-multipart

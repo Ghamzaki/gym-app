@@ -1,8 +1,7 @@
 # app/database.py
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 # --- Supabase/PostgreSQL Integration ---
 # Prioritize DATABASE_URL environment variable for production/Supabase, 

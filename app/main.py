@@ -20,19 +20,6 @@ app = FastAPI(
     description="JWT Authentication and Role-Based Access Control using Python/FastAPI and Render.",
 )
 
-# Serve Static Files (Frontend)
-app.mount("/", StaticFiles(directory="app/static", html=True), name="static") 
-
-#  Requires the user to be an Admin
-@app.get("/users/{user_id}", response_model=schemas.UserPublic, dependencies=[Depends(ADMIN_ONLY)])
-async def get_user_details_by_id(user_id: int, db: DB_DEPENDENCY):
-    """
-    Admin-only route to fetch details for any user by their ID.
-    """
-    db_user = crud.get_user_by_id(db, user_id)
-    if not db_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return schemas.UserPublic.model_validate(db_user)
 
 ## User Registration Route
 @app.post("/register", response_model=schemas.UserPublic, status_code=status.HTTP_201_CREATED)
@@ -43,7 +30,6 @@ async def register_user(user_data: schemas.UserCreate, db: DB_DEPENDENCY):
     
     new_user = crud.create_user(db, user=user_data)
     return schemas.UserPublic.model_validate(new_user)
-
 
 ## Token Generation / Login Route
 @app.post("/token", response_model=schemas.Token)
@@ -71,10 +57,21 @@ async def read_users_me(current_user: CURRENT_USER_DEPENDENCY):
     return current_user
 
 ## Role-Based Access Control (Trainer/Admin)
-@app.get("/training-schedule", dependencies=[Depends(TRAINER_OR_ADMIN)])
-async def get_training_schedule():
-    """Access granted only to users with the 'trainer' or 'admin' role."""
-    return {"message": "Access granted: This is the confidential training schedule."}
+@app.get("/services", response_model=list[str], dependencies=[Depends(CURRENT_USER_DEPENDENCY)])
+async def get_services(current_user: CURRENT_USER_DEPENDENCY):
+    """
+    Retrieves a list of available gym services accessible by any logged-in user.
+    """
+    
+    # List of available services
+    available_services = [
+        "Cardio Area Access",
+        "Strength Training Zone",
+        "Group Fitness Classes (Premium)",
+        "Personal Training Sessions (Bookable)",
+        "Locker Room Access"
+    ]
+    return available_services
 
 ## Role-Based Access Control (Admin Only)
 @app.patch("/admin/update-role/{user_id}", response_model=schemas.UserPublic, dependencies=[Depends(ADMIN_ONLY)])
