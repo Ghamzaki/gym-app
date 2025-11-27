@@ -3,6 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Annotated
 
+
 # Absolute imports work because Uvicorn is run from the project root
 from . import models, schemas, crud, auth
 from .database import engine, get_db
