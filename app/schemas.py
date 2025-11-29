@@ -46,8 +46,9 @@ class ClassCreate(ClassBase):
 class ClassPublic(ClassBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    #class Config:
+        #from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- BOOKING SCHEMAS ---
 class BookingBase(BaseModel):
@@ -60,5 +61,6 @@ class BookingCreate(BookingBase):
 class BookingPublic(BookingBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    #class Config:
+        #from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

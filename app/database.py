@@ -3,8 +3,8 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# --- Supabase/PostgreSQL Integration ---
-# Prioritize DATABASE_URL environment variable for production/Supabase, 
+# --- PostgreSQL Integration ---
+# Using DATABASE_URL environment variable for production, 
 # falling back to SQLite for easy local testing if the variable is missing.
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", 
@@ -19,7 +19,7 @@ engine = create_engine(
     DATABASE_URL, 
     connect_args=connect_args
 )
-# ---
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
