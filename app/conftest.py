@@ -44,7 +44,7 @@ def client(db_session):
         try:
             yield db_session
         finally:
-            # We don't close here as the session is closed in the db_session fixture yield
+            # don't close here as the session is closed in the db_session fixture yield
             pass
 
     # 2. Apply the Override

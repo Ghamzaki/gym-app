@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from typing import Annotated
 
 
-# Absolute imports work because Uvicorn is run from the project root
+# Absolute imports works because Uvicorn is run from the project root
 from . import models, schemas, crud, auth
 from .database import engine, get_db
 from .dependencies import (
@@ -12,7 +12,7 @@ from .dependencies import (
 )
 
 # Initialize the database and create tables on startup
-# This command connects to Supabase/PostgreSQL and ensures the tables exist.
+# This command connects to PostgreSQL and ensures the tables exist.
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -118,7 +118,7 @@ async def book_class(
     if booking_data.member_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot book for another user.")
     
-    # We use current_user.id for the member_id in the booking
+    # I use current_user.id for the member_id in the booking
     result = crud.create_booking(db, 
                                  class_id=booking_data.class_id, 
                                  member_id=current_user.id) 
