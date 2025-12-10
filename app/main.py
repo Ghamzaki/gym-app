@@ -66,8 +66,8 @@ async def get_services(current_user: CURRENT_USER_DEPENDENCY):
     available_services = [
         "Cardio Area Access",
         "Strength Training Zone",
-        "Group Fitness Classes (Premium)",
-        "Personal Training Sessions (Bookable)",
+        "Group Fitness Classes",
+        "Personal Training Sessions",
         "Locker Room Access"
     ]
     return available_services
